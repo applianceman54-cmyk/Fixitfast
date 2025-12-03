@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Appliance Repair Wizard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --accent-2: #38bdf8;
+      --danger: #ef4444;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      background: linear-gradient(180deg, #0b1220, var(--bg));
+      color: var(--text);
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 24px; margin: 0; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-badge {
+      background: var(--accent-2);
+      color: #002b3f;
+      font-weight: 700;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+    }
+    .panel {
+      background: rgba(17,24,39,0.8);
+      border: 1px solid rgba(148,163,184,0.2);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,184,0.25);
+      background: #0b1220;
+      color: var(--text);
+      cursor: pointer;
+      transition: 150ms ease;
+      text-align: center;
+      user-select: none;
+    }
+    .btn:hover { border-color: var(--accent-2); transform: translateY(-1px); }
+    .btn-primary { background: var(--accent); color: #06280e; border: none; }
+    .btn-outline { background: transparent; border: 1px solid rgba(148,163,184,0.25); }
+    .btn-danger { background: var(--danger); color: #3b0a0a; border: none; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .title { font-size: 18px; margin: 0 0 8px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .divider { height: 1px; background: rgba(148,163,184,0.2); margin: 16px 0; }
+    .chip { display: inline-block; padding: 6px 10px; border-radius: 999px; background: rgba(56,189,248,0.12); color: var(--accent-2); font-size: 12px; }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .step { padding: 12px; border: 1px dashed rgba(148,163,184,0.25); border-radius: 10px; }
+    .footer { margin-top: 30px; display: flex; justify-content: space-between; align-items: center; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas; background: #0a0f1a; border: 1px solid rgba(148,163,184,0.2); padding: 2px 6px; border-radius: 6px; font-size: 12px; color: var(--muted); }
+    a { color: var(--accent-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    @media (max-width: 520px) { .footer { flex-direction: column; gap: 10px; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>Appliance Repair Wizard</h1>
+        <span class="brand-badge">Applianceman • Northbound Co.</span>
+      </div>
+      <div class="muted">MVP • Offline-friendly • Data-driven</div>
+    </header>
+
+    <div class="panel" id="home">
+      <p class="title">Select an appliance</p>
+      <div class="grid" id="appliance-grid"></div>
+    </div>
+
+    <div class="panel" id="symptoms" style="display:none;">
+      <p class="title">Pick a symptom</p>
+      <div class="row">
+        <span class="chip" id="appliance-label"></span>
+        <button class="btn btn-outline" onclick="goHome()">Back</button>
+      </div>
+      <div class="divider"></div>
+      <div class="grid" id="symptom-grid"></div>
+    </div>
+
+    <div class="panel" id="wizard" style="display:none;">
+      <p class="title" id="wizard-title"></p>
+      <div class="row">
+        <span class="chip" id="context-chip"></span>
+        <button class="btn btn-outline" onclick="backToSymptoms()">Back</button>
+        <button class="btn btn-primary" onclick="startWizard()">Start troubleshooting</button>
+        <button class="btn btn-outline" onclick="bookRepair()">Book a repair</button>
+      </div>
+      <div class="divider"></div>
+      <div class="list" id="steps"></div>
+
+      <div class="footer">
+        <div class="muted">Tips: Keep a towel handy. Unplug before opening panels. Use <span class="kbd">Normalize</span> volume levels for video clips.</div>
+        <div class="row">
+          <button class="btn btn-outline" onclick="resetWizard()">Reset</button>
+          <button class="btn btn-danger" onclick="markNeedsService()">Mark “Needs Service”</button>
+          <button class="btn btn-primary" onclick="markFixed()">Mark “Fixed”</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Data-driven flows: add appliances, symptoms, and steps here.
+    const DATA = {
+      Washer: {
+        symptoms: {
+          "Won't drain": {
+            intro: "Let’s figure out why your washer isn’t draining. Follow these steps one by one.",
+            steps: [
+              {
+                id: "filter",
+                title: "Clean the drain filter",
+                prompt: "Have you cleaned the drain filter recently?",
+                actions: ["Yes", "No"],
+                on: {
+                  "No": { type: "guide", text: "Open the access panel, twist the filter cap, remove debris, rinse, and reinstall securely." },
+                  "Yes": { type: "next" }
+                }
+              },
+              {
+                id: "hose",
+                title: "Check the drain hose",
+                prompt: "Is the drain hose kinked or clogged?",
+                actions: ["Yes", "No"],
+                on: {
+                  "Yes": { type: "guide", text: "Straighten the hose. Detach and flush with water. Reattach with a firm clamp, no kinks." },
+                  "No": { type: "next" }
+                }
+              },
+              {
+                id: "pump",
+                title: "Verify the drain pump",
+                prompt: "Do you hear the pump running when the washer tries to drain?",
+                actions: ["Yes", "No"],
+                on: {
+                  "No": { type: "service", text: "Likely a failed drain pump or power to pump. Recommend replacement and testing with a multimeter." },
+                  "Yes": { type: "next" }
+                }
+              },
+              {
+                id: "advanced",
+                title: "Advanced issue",
+                prompt: "Could be a control board or pressure sensor problem.",
+                actions: ["Book repair"],
+                on: {
+                  "Book repair": { type: "service", text: "Schedule a technician to diagnose control/board issues and verify wiring harness integrity." }
+                }
+              }
+            ],
+            success: "Great! Your washer should now drain properly.",
+            failure: "It looks like this needs a technician. Book a repair for a proper diagnosis."
+          },
+          "Won't spin": {
+            intro: "Spin issues are often lid switch, belt, or motor.",
+            steps: [
+              { id: "lid", title: "Check lid/door switch", prompt: "Does the cycle resume when pressing the lid switch?", actions: ["Yes","No"], on: { "Yes": { type: "next" }, "No": { type: "service", text: "Replace or test the lid/door switch for continuity." } } },
+              { id: "balance", title: "Rebalance the load", prompt: "Is the load uneven or heavy?", actions: ["Yes","No"], on: { "Yes": { type: "guide", text: "Redistribute garments and remove excess weight." }, "No": { type: "next" } } },
+              { id: "belt", title: "Inspect drive belt", prompt: "Is the belt intact and tight?", actions: ["Yes","No"], on: { "No": { type: "service", text: "Replace worn/loose belt and check pulleys." }, "Yes": { type: "next" } } }
+            ],
+            success: "Spin restored. Monitor for noise or belt wear.",
+            failure: "Motor/controller likely. Book a repair."
+          }
+        }
+      },
+      Dryer: {
+        symptoms: {
+          "No heat": {
+            intro: "Let’s restore heat. Start with airflow, then elements.",
+            steps: [
+              { id: "lint", title: "Clean lint and vent", prompt: "Is the lint trap and vent clean?", actions: ["Yes","No"], on: { "No": { type: "guide", text: "Clean trap, detach vent, vacuum and clear outside hood." }, "Yes": { type: "next" } } },
+              { id: "gas_electric", title: "Gas or electric?", prompt: "Is your dryer gas or electric?", actions: ["Gas","Electric"], on: { "Gas": { type: "next" }, "Electric": { type: "next" } } },
+              { id: "element", title: "Check heating element/igniter", prompt: "Any visible damage or no glow on gas igniter?", actions: ["Damaged/No glow","Looks fine"], on: { "Damaged/No glow": { type: "service", text: "Replace element (electric) or igniter (gas). Test thermostats/thermal fuse." }, "Looks fine": { type: "next" } } }
+            ],
+            success: "Heat restored or airflow improved.",
+            failure: "Likely thermal fuse or control. Book repair."
+          }
+        }
+      },
+      Dishwasher: {
+        symptoms: {
+          "Not cleaning": {
+            intro: "We’ll improve spray pressure and filtration.",
+            steps: [
+              { id: "filter", title: "Clean filter", prompt: "Is the filter clean?", actions: ["Yes","No"], on: { "No": { type: "guide", text: "Remove and rinse filters thoroughly, re-seat properly." }, "Yes": { type: "next" } } },
+              { id: "arms", title: "Clear spray arms", prompt: "Are spray arm holes blocked?", actions: ["Yes","No"], on: { "Yes": { type: "guide", text: "Use a toothpick to clear holes; rinse arms." }, "No": { type: "next" } } },
+              { id: "inlet", title: "Check water inlet", prompt: "Is the inlet screen clogged?", actions: ["Yes","No"], on: { "Yes": { type: "guide", text: "Clean screen; verify adequate pressure." }, "No": { type: "next" } } }
+            ],
+            success: "Cleaning performance improved.",
+            failure: "Likely circulation pump or diverter. Book repair."
+          }
+        }
+      },
+      Stove: {
+        symptoms: {
+          "Burner won't light": {
+            intro: "Ignition and gas flow are common causes.",
+            steps: [
+              { id: "cap", title: "Dry burner cap", prompt: "Is the burner cap dry and seated?", actions: ["Yes","No"], on: { "No": { type: "guide", text: "Dry and seat cap correctly; clean spills." }, "Yes": { type: "next" } } },
+              { id: "spark", title: "Check spark", prompt: "Do you see/hear a spark?", actions: ["Yes","No"], on: { "No": { type: "service", text: "Igniter/switch issue; inspect wiring and replace igniter if needed." }, "Yes": { type: "next" } } }
+            ],
+            success: "Burner lights normally.",
+            failure: "Gas valve/regulator likely. Book repair."
+          }
+        }
+      },
+      Fridge: {
+        symptoms: {
+          "Not cooling": {
+            intro: "Start with airflow and condenser coils.",
+            steps: [
+              { id: "coils", title: "Clean condenser coils", prompt: "Are the coils dusty?", actions: ["Yes","No"], on: { "Yes": { type: "guide", text: "Unplug, brush/vacuum coils thoroughly." }, "No": { type: "next" } } },
+              { id: "fan", title: "Check fans", prompt: "Are both condenser and evaporator fans spinning?", actions: ["Yes","No"], on: { "No": { type: "service", text: "Replace failed fan; verify voltage." }, "Yes": { type: "next" } } }
+            ],
+            success: "Cooling improved. Monitor temps overnight.",
+            failure: "Compressor/refrigerant likely. Book repair."
+          }
+        }
+      }
+    };
+
+    // State
+    let currentAppliance = null;
+    let currentSymptom = null;
+    let progress = [];
+
+    // Init
+    const homeEl = document.getElementById("home");
+    const symptomsEl = document.getElementById("symptoms");
+    const wizardEl = document.getElementById("wizard");
+    const applianceGrid = document.getElementById("appliance-grid");
+    const symptomGrid = document.getElementById("symptom-grid");
+    const applianceLabel = document.getElementById("appliance-label");
+    const wizardTitle = document.getElementById("wizard-title");
+    const contextChip = document.getElementById("context-chip");
+    const stepsEl = document.getElementById("steps");
+
+    function renderHome() {
+      applianceGrid.innerHTML = "";
+      Object.keys(DATA).forEach(name => {
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.textContent = name;
+        btn.onclick = () => selectAppliance(name);
+        applianceGrid.appendChild(btn);
+      });
+    }
+
+    function selectAppliance(name) {
+      currentAppliance = name;
+      homeEl.style.display = "none";
+      symptomsEl.style.display = "block";
+      applianceLabel.textContent = name;
+      renderSymptoms();
+    }
+
+    function renderSymptoms() {
+      symptomGrid.innerHTML = "";
+      const symptoms = Object.keys(DATA[currentAppliance].symptoms);
+      symptoms.forEach(s => {
+        const btn = document.createElement("button");
+        btn.className = "btn";
+        btn.textContent = s;
+        btn.onclick = () => openWizard(s);
+        symptomGrid.appendChild(btn);
+      });
+    }
+
+    function openWizard(symptom) {
+      currentSymptom = symptom;
+      progress = [];
+      symptomsEl.style.display = "none";
+      wizardEl.style.display = "block";
+      wizardTitle.textContent = `${currentAppliance} • ${currentSymptom}`;
+      contextChip.textContent = "Symptom wizard";
+      stepsEl.innerHTML = `<div class="muted">${DATA[currentAppliance].symptoms[currentSymptom].intro}</div>`;
+    }
+
+    function startWizard() {
+      stepsEl.innerHTML = "";
+      const steps = DATA[currentAppliance].symptoms[currentSymptom].steps;
+      steps.forEach((step, idx) => {
+        const block = document.createElement("div");
+        block.className = "step";
+        block.innerHTML = `
+          <div class="title">${idx + 1}. ${step.title}</div>
+          <div class="muted">${step.prompt}</div>
+          <div class="row" id="actions-${step.id}"></div>
+          <div class="muted" id="result-${step.id}" style="margin-top:8px;"></div>
+        `;
+        stepsEl.appendChild(block);
+
+        const actionsEl = block.querySelector(`#actions-${step.id}`);
+        step.actions.forEach(a => {
+          const btn = document.createElement("button");
+          btn.className = "btn btn-outline";
+          btn.textContent = a;
+          btn.onclick = () => handleAction(step, a);
+          actionsEl.appendChild(btn);
+        });
+      });
+    }
+
+    function handleAction(step, action) {
+      const res = step.on[action];
+      const resultEl = document.getElementById(`result-${step.id}`);
+      progress.push({ step: step.id, action });
+      if (!res) return;
+
+      if (res.type === "guide") {
+        resultEl.textContent = res.text;
+      } else if (res.type === "service") {
+        resultEl.innerHTML = `${res.text} — <a href="#" onclick="bookRepair()">Book now</a>`;
+      } else if (res.type === "next") {
+        resultEl.textContent = "OK — move to the next step.";
+      }
+
+      // If last step, show success/failure hint based on whether any 'service' was triggered.
+      const steps = DATA[currentAppliance].symptoms[currentSymptom].steps;
+      const last = progress.length >= steps.length;
+      if (last) {
+        const usedService = progress.some(p => {
+          const s = steps.find(x => x.id === p.step);
+          return s && s.on[p.action] && s.on[p.action].type === "service";
+        });
+        const msg = usedService
+          ? DATA[currentAppliance].symptoms[currentSymptom].failure
+          : DATA[currentAppliance].symptoms[currentSymptom].success;
+        const summary = document.createElement("div");
+        summary.className = "step";
+        summary.innerHTML = `<div class="title">Outcome</div><div>${msg}</div>`;
+        stepsEl.appendChild(summary);
+      }
+    }
+
+    function bookRepair() {
+      alert("Booking: open your scheduling link here (Calendly, phone, or form).");
+      // Example: window.open('https://your-booking-link.example.com', '_blank');
+    }
+    function markFixed() {
+      alert("Marked as Fixed. Save this to local storage or send to backend.");
+      // Example: localStorage.setItem('lastOutcome', JSON.stringify({ appliance: currentAppliance, symptom: currentSymptom, status: 'fixed', date: Date.now() }));
+    }
+    function markNeedsService() {
+      alert("Marked as Needs Service. Offer booking or save the state.");
+    }
+    function resetWizard() {
+      openWizard(currentSymptom);
+    }
+    function goHome() {
+      currentAppliance = null;
+      currentSymptom = null;
+      homeEl.style.display = "block";
+      symptomsEl.style.display = "none";
+      wizardEl.style.display = "none";
+    }
+    function backToSymptoms() {
+      wizardEl.style.display = "none";
+      symptomsEl.style.display = "block";
+    }
+
+    // Boot
+    renderHome();
+  </script>
+</body>
+</html>
